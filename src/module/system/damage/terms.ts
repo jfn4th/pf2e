@@ -467,13 +467,18 @@ class IntermediateDie extends terms.RollTerm<IntermediateDieData> {
     override toJSON(): DieData | IntermediateDieData {
         if (this.die) return this.die.toJSON();
         if (typeof this.number === "number" && typeof this.faces === "number") {
-            return terms.Die.fromData({
+            const result = terms.Die.fromData({
                 class: "Die",
                 number: this.number,
                 faces: this.faces,
                 evaluated: this._evaluated,
                 options: this.options,
             });
+            return {
+                ...result,
+                number: result.number as number,
+                faces: result.faces as number,
+            };
         }
         return {
             ...super.toJSON(),

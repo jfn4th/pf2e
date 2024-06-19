@@ -34,6 +34,10 @@ export class Die<TData extends DieData = DieData> extends DiceTerm<TData> {
         ms: "marginSuccess";
     };
 
+    override get total(): number;
+
+    override get denomination(): string;
+
     /**
      * Re-roll the Die, rolling additional results for any values which fall within a target set.
      * If no target number is specified, re-roll the lowest possible result.
@@ -47,12 +51,12 @@ export class Die<TData extends DieData = DieData> extends DiceTerm<TData> {
      * @param recursive Reroll recursively, continuing to reroll until the condition is no longer met
      * @returns False if the modifier was unmatched
      */
-    reroll(modifier: string, { recursive }?: { recursive?: boolean }): boolean | void;
+    reroll(modifier: string, { recursive }?: { recursive?: boolean }): Promise<false | void>;
 
     /**
      * @see {@link Die#reroll}
      */
-    rerollRecursive(modifier: string): boolean | void;
+    rerollRecursive(modifier: string): Promise<false | void>;
 
     /**
      * Explode the Die, rolling additional results for any values which match the target set.
@@ -61,13 +65,14 @@ export class Die<TData extends DieData = DieData> extends DiceTerm<TData> {
      *
      * @param modifier The matched modifier query
      * @param recursive Explode recursively, such that new rolls can also explode?
+     * @returns False if the modifier was unmatched
      */
-    explode(modifier: string, { recursive }?: { recursive?: boolean }): void;
+    explode(modifier: string, { recursive }?: { recursive?: boolean }): Promise<false | void>;
 
     /**
      * @see {@link Die#explode}
      */
-    explodeOnce(modifier: string): void;
+    explodeOnce(modifier: string): Promise<false | void>;
 
     /**
      * Keep a certain number of highest or lowest dice rolls from the result set.

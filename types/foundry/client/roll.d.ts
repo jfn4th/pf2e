@@ -39,7 +39,7 @@ declare global {
         terms: RollTerm[];
 
         /** An array of inner DiceTerms which were evaluated as part of the Roll evaluation */
-        protected _dice: DiceTerm[];
+        _dice: DiceTerm[];
 
         /** Store the original cleaned formula for the Roll, prior to any internal evaluation or simplification */
         _formula: string;
@@ -48,7 +48,13 @@ declare global {
         _evaluated: boolean;
 
         /** Cache the numeric total generated through evaluation of the Roll. */
-        protected _total: number | undefined;
+        _total: number | undefined;
+
+        /** A reference to the Roll at the root of the evaluation tree. */
+        _root: this;
+
+        /** A reference to the RollResolver app being used to externally resolve this Roll. */
+        // _resolver: RollResolver;
 
         /** A Proxy environment for safely evaluating a string using only available Math functions */
         static MATH_PROXY: RollMathProxy;
@@ -58,6 +64,9 @@ declare global {
 
         /** The HTML template used to render an expanded Roll tooltip to the chat log */
         static TOOLTIP_TEMPLATE: string;
+
+        /** A mapping of Roll instances to currently-active resolvers. */
+        // static RESOLVERS: Map<Roll, RollResolver>;
 
         /**
          * Prepare the data structure used for the Roll.
@@ -83,6 +92,10 @@ declare global {
         /** Return the total result of the Roll expression if it has been evaluated. */
         get total(): number | undefined;
 
+        /** Return the arbitrary product of evaluating this Roll. */
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        get product(): any;
+
         /** Whether this Roll contains entirely deterministic terms or whether there is some randomness. */
         get isDeterministic(): boolean;
 
@@ -104,30 +117,79 @@ declare global {
 
         /**
          * Execute the Roll, replacing dice and evaluating the total result
-         * @param [options={}] Options which inform how the Roll is evaluated
-         * @param [options.minimize=false] Minimize the result, obtaining the smallest possible value.
-         * @param [options.maximize=false] Maximize the result, obtaining the largest possible value.
-         * @returns The evaluated Roll instance
+         * @param [options={}]                      Options which inform how evaluation is performed
+         * @param [options.minimize=false]          Minimize the result, obtaining the smallest possible value.
+         * @param [options.maximize=false]          Maximize the result, obtaining the largest possible value.
+         * @param [options.allowStrings=false]      If true, string terms will not cause an error to be thrown during evaluation.
+         * @param [options.allowInteractive=true]   If false, force the use of non-interactive rolls and do not prompt the user
+         *                                          to make manual rolls.
+         * @returns                                 The evaluated Roll instance
          *
          * @example
+         *```js
          * let r = new Roll("2d6 + 4 + 1d4");
-         * r.evaluate();
+         * await r.evaluate();
          * console.log(r.result); // 5 + 4 + 2
          * console.log(r.total);  // 11
+         * ```
          */
-        evaluate({ minimize, maximize }?: EvaluateRollParams): Rolled<this> | Promise<Rolled<this>>;
+        evaluate({ minimize, maximize, allowStrings, allowInteractive }?: EvaluateRollParams): Promise<Rolled<this>>;
+
+        /**
+         * Execute the Roll synchronously, replacing dice and evaluating the total result.
+         * @param [options={}]                  Options which inform how evaluation is performed.
+         * @param [options.minimize=false]      Minimize the result, obtaining the smallest possible value.
+         * @param [options.maximize=false]      Maximize the result, obtaining the largest possible value.
+         * @param [options.strict=true]         Throw an Error if the Roll contains non-deterministic terms that cannot be evaluated synchronously.
+         *                                      If this is set to false, non-deterministic terms will be ignored.
+         * @param [options.allowStrings=false]  If true, string terms will not cause an error to be thrown during evaluation.
+         * @returns                             The evaluated Roll instance.
+         */
+        evaluateSync({ minimize, maximize, strict, allowStrings }: EvaluateSyncRollParams): Rolled<this>;
 
         /**
          * Evaluate the roll asynchronously.
-         * A temporary helper method used to migrate behavior from 0.7.x (sync by default) to 0.9.x (async by default).
          */
-        protected _evaluate({ minimize, maximize }?: Omit<EvaluateRollParams, "async">): Promise<Rolled<this>>;
+        protected _evaluate({
+            minimize,
+            maximize,
+            allowStrings,
+            allowInteractive,
+        }?: EvaluateRollParams): Promise<Rolled<this>>;
+
+        /**
+         * Evaluate an AST asynchronously.
+         * @param node                      The root node or term.
+         * @param [options]                 Options which inform how evaluation is performed
+         * @param [options.minimize]        Force the result to be minimized
+         * @param [options.maximize]        Force the result to be maximized
+         * @param [options.allowStrings]    If true, string terms will not cause an error to be thrown during evaluation.
+         * @returns                         The evaluated result
+         */
+        protected _evaluateASTAsync(
+            node: RollParseNode | RollTerm,
+            { minimize, maximize, allowStrings }?: EvaluateRollParams,
+        ): Promise<string | number>;
 
         /**
          * Evaluate the roll synchronously.
-         * A temporary helper method used to migrate behavior from 0.7.x (sync by default) to 0.9.x (async by default).
          */
-        protected _evaluateSync({ minimize, maximize }?: Omit<EvaluateRollParams, "async">): Rolled<this>;
+        protected _evaluateSync({ minimize, maximize, strict, allowStrings }?: EvaluateSyncRollParams): Rolled<this>;
+
+        /**
+         * Evaluate an AST synchronously.
+         * @param node                      The root node or term.
+         * @param [options]                 Options which inform how evaluation is performed
+         * @param [options.minimize]        Force the result to be minimized
+         * @param [options.maximize]        Force the result to be maximized
+         * @param [options.strict]          Throw an error if encountering a term that cannot be synchronously evaluated.
+         * @param [options.allowStrings]    If true, string terms will not cause an error to be thrown during evaluation.
+         * @returns                         The evaluated result
+         */
+        protected _evaluateASTSync(
+            node: RollParseNode | RollTerm,
+            { minimize, maximize, strict, allowStrings }?: EvaluateSyncRollParams,
+        ): string | number;
 
         /**
          * Safely evaluate the final total result for the Roll using its component terms.
@@ -139,7 +201,7 @@ declare global {
          * Alias for evaluate.
          * @see {Roll#evaluate}
          */
-        roll({ minimize, maximize }?: EvaluateRollParams): Promise<Rolled<this>>;
+        roll({ minimize, maximize, allowStrings, allowInteractive }?: EvaluateRollParams): Promise<Rolled<this>>;
 
         /**
          * Create a new Roll object using the original provided formula and data.
@@ -147,7 +209,22 @@ declare global {
          * @param [options={}] Evaluation options passed to Roll#evaluate
          * @return A new Roll object, rolled using the same formula and data
          */
-        reroll({ minimize, maximize }?: EvaluateRollParams): Promise<Rolled<this>>;
+        reroll({ minimize, maximize, allowStrings, allowInteractive }?: EvaluateRollParams): Promise<Rolled<this>>;
+
+        /**
+         * Recompile the formula string that represents this Roll instance from its component terms.
+         * @returns The re-compiled formula
+         */
+        resetFormula(): string;
+
+        /**
+         * Propagate flavor text across all terms that do not have any.
+         * @param flavor The flavor text.
+         */
+        propagateFlavor(flavor: string): void;
+
+        /** @override */
+        toString(): string;
 
         /* -------------------------------------------- */
         /*  Static Class Methods                        */
@@ -158,12 +235,17 @@ declare global {
          * @param formula      The formula used to create the Roll instance
          * @param [data={}]    The data object which provides component data for the formula
          * @param [options={}] Additional options which modify or describe this Roll
-         * @return The constructed Roll instance
+         * @returns The constructed Roll instance
          */
         static create(formula: string, data?: Record<string, unknown>, options?: RollOptions): Roll;
 
         /** Get the default configured Roll class. */
         static get defaultImplementation(): typeof Roll;
+
+        /**
+         * Retrieve the appropriate resolver implementation based on the user's configuration.
+         */
+        // static get resolverImplementation(): typeof RollResolver;
 
         /**
          * Transform an array of RollTerm objects into a cleaned string formula representation.
@@ -186,13 +268,23 @@ declare global {
          * @returns An array of simplified terms
          */
         static simplifyTerms(terms: RollTerm[]): RollTerm[];
+
         /**
          * Simulate a roll and evaluate the distribution of returned results
          * @param formula The Roll expression to simulate
          * @param n The number of simulations
          * @return The rolled totals
          */
-        static simulate(formula: string, n?: number): number[];
+        static simulate(formula: string, n?: number): Promise<number[]>;
+
+        /**
+         * Register an externally-fulfilled result with an active RollResolver.
+         * @param method The fulfillment method.
+         * @param denomination The die denomination being fulfilled.
+         * @param result The obtained result.
+         * @returns Whether the result was consumed. Returns undefined if no resolver was available.
+         */
+        static registerResult(method: string, denomination: string, result: number): boolean | void;
 
         /* -------------------------------------------- */
         /*  Roll Formula Parsing                        */
@@ -214,6 +306,13 @@ declare global {
         static parse(formula: string, data: object): RollTerm[];
 
         /**
+         * Instantiate the nodes in an AST sub-tree into RollTerm instances.
+         * @param ast The root of the AST sub-tree.
+         * @returns An array of RollTerm instances.
+         */
+        static instantiateAST(ast: RollParseNode): RollTerm[];
+
+        /**
          * Replace referenced data attributes in the roll formula with values from the provided data.
          * Data references in the formula use the @attr syntax and would reference the corresponding attr key.
          *
@@ -221,7 +320,7 @@ declare global {
          * @param data      The data object which provides replacements
          * @param [missing] The value that should be assigned to any unmatched keys. If null, the unmatched key is
          *                  left as-is.
-         * @param [warn] Display a warning notification when encountering an un-matched key.
+         * @param [warn=false] Display a warning notification when encountering an un-matched key.
          */
         static replaceFormulaData(
             formula: string,
@@ -237,69 +336,11 @@ declare global {
         static validate(formula: string): boolean;
 
         /**
-         * Split a formula by identifying its outer-most parenthetical and math terms
-         * @param _formula      The raw formula to split
-         * @returns An array of terms, split on parenthetical terms
+         * Determine which of the given terms require external fulfillment.
+         * @param terms  The terms.
+         * @returns An array of terms which require external fulfillment.
          */
-        protected static _splitParentheses(_formula: string): string[];
-
-        /** Handle closing of a parenthetical term to create a FunctionTerm expression with a function and arguments */
-        protected static _splitMathArgs(expression: string): FunctionTerm[];
-
-        /**
-         * Split a formula by identifying its outer-most dice pool terms
-         * @param _formula The raw formula to split
-         * @returns An array of terms, split on parenthetical terms
-         */
-        protected static _splitPools(_formula: string): PoolTerm[];
-
-        /**
-         * Split a formula by identifying its outer-most groups using a certain group symbol like parentheses or brackets.
-         * @param _formula The raw formula to split
-         * @param options  Options that configure how groups are split
-         * @returns An array of terms, split on dice pool terms
-         */
-        protected static _splitGroup(
-            _formula?: string,
-            {
-                openRegexp,
-                closeRegexp,
-                openSymbol,
-                closeSymbol,
-                onClose,
-            }?: {
-                openRegexp?: RegExp;
-                closeRegexp?: RegExp;
-                openSymbol?: string;
-                closeSymbol?: string;
-                onClose?: () => void | Promise<void>;
-            },
-        ): string[];
-
-        /**
-         * Split a formula by identifying arithmetic terms
-         * @param _formula The raw formula to split
-         * @returns An array of terms, split on arithmetic operators
-         */
-        protected static _splitOperators(_formula: string): (string | OperatorTerm)[];
-
-        /**
-         * Temporarily remove flavor text from a string formula allowing it to be accurately parsed.
-         * @param formula The formula to extract
-         * @returns The cleaned formula and extracted flavor mapping
-         */
-        protected static _extractFlavors(formula?: string): {
-            formula: string;
-            flavors: Record<string, string>;
-        };
-
-        /**
-         * Restore flavor text to a string term
-         * @param term    The string term possibly containing flavor symbols
-         * @param flavors The extracted flavors object
-         * @returns The restored term containing flavor text
-         */
-        protected static _restoreFlavor(term: string, flavors: Record<string, string>): RollTerm;
+        static identifyFulfillableTerms(terms: RollTerm[]): DiceTerm[];
 
         /**
          * Classify a remaining string term into a recognized RollTerm class
@@ -347,9 +388,9 @@ declare global {
          * @param [options]             Additional options which modify the created message.
          * @param [options.rollMode]    The template roll mode to use for the message from CONFIG.Dice.rollModes
          * @param [options.create=true] Whether to automatically create the chat message, or only return the
-         *                                          prepared chatData object.
-         * @return A promise which resolves to the created ChatMessage entity, if create is true
-         *         or the Object of prepared chatData otherwise.
+         *                              prepared chatData object.
+         * @return                      A promise which resolves to the created ChatMessage entity, if create is true
+         *                              or the Object of prepared chatData otherwise.
          */
         toMessage(
             messageData: PreCreate<foundry.documents.ChatMessageSource> | undefined,
@@ -379,6 +420,31 @@ declare global {
          * @param a The inline-roll button
          */
         static collapseInlineResult(a: HTMLAnchorElement): HTMLAnchorElement;
+
+        /**
+         * Construct an inline roll link for this Roll.
+         * @param [options]             Additional options to configure how the link is constructed.
+         * @param [options.label]       A custom label for the total.
+         * @param [options.attrs]       Attributes to set on the link.
+         * @param [options.dataset]     Custom data attributes to set on the link.
+         * @param [options.classes]     Additional classes to add to the link. The classes `inline-roll`
+         *                              and `inline-result` are added by default.
+         * @param  [options.icon]       A font-awesome icon class to use as the icon instead of a d20.
+         * @returns                     The constructed HTML anchor element.
+         */
+        toAnchor({
+            attrs,
+            dataset,
+            classes,
+            label,
+            icon,
+        }?: {
+            label?: string;
+            attrs?: Record<string, string>;
+            dataset?: Record<string, string>;
+            classes?: string[];
+            icon?: string;
+        }): HTMLAnchorElement;
 
         /* -------------------------------------------- */
         /*  Serialization and Loading                   */
@@ -456,6 +522,12 @@ declare global {
     interface EvaluateRollParams {
         minimize?: boolean;
         maximize?: boolean;
+        allowStrings?: boolean;
+        allowInteractive?: boolean;
+    }
+
+    interface EvaluateSyncRollParams extends Omit<EvaluateRollParams, "allowInteractive"> {
+        strict?: boolean;
     }
 
     // Empty extended interface that can be expanded by the system without polluting Math itself

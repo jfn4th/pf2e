@@ -11,8 +11,13 @@ export abstract class RollTerm<TTermData extends RollTermData = RollTermData> {
     /** An internal flag for whether the term has been evaluated */
     _evaluated: boolean;
 
+    /**
+     * A reference to the Roll at the root of the evaluation tree.
+     */
+    _root: Roll;
+
     /** Is this term intermediate, and should be evaluated first as part of the simplification process? */
-    isIntermediate?: boolean;
+    isIntermediate: boolean;
 
     /** A regular expression pattern which identifies optional term-level flavor text */
     static FLAVOR_REGEXP_STRING?: string;
@@ -45,30 +50,56 @@ export abstract class RollTerm<TTermData extends RollTermData = RollTermData> {
     /** Whether this term is entirely deterministic or contains some randomness. */
     get isDeterministic(): boolean;
 
+    /** A reference to the RollResolver app being used to externally resolve this term. */
+    // get resolver(): RollResolver | undefined;
+
     /* -------------------------------------------- */
     /*  RollTerm Methods                            */
     /* -------------------------------------------- */
 
     /**
      * Evaluate the term, processing its inputs and finalizing its total.
-     * @param [options={}]             Options which modify how the RollTerm is evaluated
-     * @param [options.minimize=false] Minimize the result, obtaining the smallest possible value.
-     * @param [options.maximize=false] Maximize the result, obtaining the largest possible value.
-     * @returns The evaluated RollTerm
+     * @param [options={}]                  Options which modify how the RollTerm is evaluated
+     * @param [options.minimize=false]      Minimize the result, obtaining the smallest possible value.
+     * @param [options.maximize=false]      Maximize the result, obtaining the largest possible value.
+     *@param [options.allowStrings=false]   If true, string terms will not throw an error when evaluated.
+     * @returns                             Returns a Promise if the term is non-deterministic.
      */
-    evaluate({ minimize, maximize }?: { minimize?: boolean; maximize?: boolean }): Promise<Evaluated<this>>;
+    evaluate({
+        minimize,
+        maximize,
+        allowStrings,
+    }?: {
+        minimize?: boolean;
+        maximize?: boolean;
+        allowStrings?: boolean;
+    }): Promise<Evaluated<this>> | Evaluated<this>;
 
     /**
      * Evaluate the term.
      * @param [options={}] Options which modify how the RollTerm is evaluated, see RollTerm#evaluate
      */
-    protected _evaluate({ minimize, maximize }?: { minimize?: boolean; maximize?: boolean }): Promise<Evaluated<this>>;
+    protected _evaluate({
+        minimize,
+        maximize,
+        allowStrings,
+    }?: {
+        minimize?: boolean;
+        maximize?: boolean;
+        allowStrings?: boolean;
+    }): Promise<Evaluated<this>> | Evaluated<this>;
 
     /**
-     * This method is temporarily factored out in order to provide different behaviors synchronous evaluation.
-     * This will be removed in 0.10.x
+     * Determine if evaluating a given RollTerm with certain evaluation options can be done so deterministically.
+     * @param term                  The term.
+     * @param [options]             Options for evaluating the term.
+     * @param [options.maximize]    Force the result to be maximized.
+     * @param [options.minimize]    Force the result to be minimized.
      */
-    protected _evaluateSync({ minimize, maximize }?: { minimize?: boolean; maximize?: boolean }): Evaluated<this>;
+    static isDeterministic(
+        term: RollTerm,
+        { maximize, minimize }?: { maximize?: boolean; minimize?: boolean },
+    ): boolean;
 
     /* -------------------------------------------- */
     /*  Serialization and Loading                   */
@@ -80,6 +111,13 @@ export abstract class RollTerm<TTermData extends RollTermData = RollTermData> {
      * @return The constructed RollTerm
      */
     static fromData<TTerm extends RollTerm>(this: AbstractConstructorOf<TTerm>, data: TermDataOf<TTerm>): TTerm;
+
+    /**
+     * Construct a RollTerm from parser information.
+     * @param node The node.
+     * @returns The constructed RollTerm.
+     */
+    static fromParseNode(node: RollParseNode): RollTerm;
 
     /**
      * Define term-specific logic for how a de-serialized data object is restored as a functional RollTerm
@@ -115,4 +153,9 @@ declare global {
     };
 
     type TermDataOf<TTerm extends RollTerm> = TTerm extends RollTerm<infer TData> ? TData : never;
+
+    type RollParseNode = {
+        class: string;
+        formula: string;
+    };
 }

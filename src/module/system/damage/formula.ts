@@ -360,7 +360,7 @@ function parseTermsFromSimpleFormula(
 
             result.unshift({
                 modifier: term instanceof foundry.dice.terms.NumericTerm ? term.number : 0,
-                dice: term instanceof foundry.dice.terms.Die ? { faces: term.faces, number: term.number } : null,
+                dice: term instanceof foundry.dice.terms.Die ? { faces: term.faces, number: term.number || 0 } : null,
             });
 
             return result;

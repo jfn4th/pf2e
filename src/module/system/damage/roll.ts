@@ -402,7 +402,7 @@ class DamageInstance extends AbstractDamageRoll {
         switch (type) {
             case "minimum":
                 if (term instanceof terms.Die) {
-                    return term.number;
+                    return term.number!;
                 } else if (
                     term instanceof ArithmeticExpression ||
                     term instanceof Grouping ||
@@ -413,7 +413,7 @@ class DamageInstance extends AbstractDamageRoll {
                 break;
             case "maximum":
                 if (term instanceof terms.Die) {
-                    return term.number * term.faces;
+                    return term.number! * term.faces!;
                 } else if (
                     term instanceof ArithmeticExpression ||
                     term instanceof Grouping ||
@@ -424,7 +424,7 @@ class DamageInstance extends AbstractDamageRoll {
                 break;
             default: {
                 if (term instanceof terms.Die) {
-                    return term.number * ((term.faces + 1) / 2);
+                    return term.number! * ((term.faces! + 1) / 2);
                 } else if (
                     term instanceof ArithmeticExpression ||
                     term instanceof Grouping ||
