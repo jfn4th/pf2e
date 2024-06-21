@@ -220,14 +220,13 @@ declare global {
          * @param match     The regular expression match array
          * @param rollData  Provided roll data for use in roll evaluation
          * @param [options] Additional options to configure enrichment behaviour
-         * @returns The replaced match, returned as a Promise if async was true and the message contained an
-         *          immediate inline roll.
+         * @returns The replaced match. Returns null if the contained command is not a
+         *          valid roll expression.
          */
         static _createInlineRoll(
             match: RegExpMatchArray,
             rollData: Record<string, unknown>,
-            options?: EvaluateRollParams,
-        ): HTMLAnchorElement | null | Promise<HTMLAnchorElement | null>;
+        ): Promise<HTMLAnchorElement | null>;
 
         /* -------------------------------------------- */
         /*  Event Listeners and Handlers                */

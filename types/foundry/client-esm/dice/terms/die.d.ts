@@ -10,7 +10,7 @@ import type { DiceTerm } from "./dice-term.d.ts";
 export class Die<TData extends DieData = DieData> extends DiceTerm<TData> {
     constructor(termData?: Partial<DieData>);
 
-    static override DENOMINATION: string;
+    static override DENOMINATION: "d";
 
     static override MODIFIERS: {
         r: "reroll";

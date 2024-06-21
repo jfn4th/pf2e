@@ -1,3 +1,5 @@
+import { omit } from "remeda";
+
 /**
  * An abstract class which represents a single token that can be used as part of a Roll formula.
  * Every portion of a Roll formula is parsed into a subclass of RollTerm in order for the Roll to be fully evaluated.
@@ -65,15 +67,7 @@ export abstract class RollTerm<TTermData extends RollTermData = RollTermData> {
      *@param [options.allowStrings=false]   If true, string terms will not throw an error when evaluated.
      * @returns                             Returns a Promise if the term is non-deterministic.
      */
-    evaluate({
-        minimize,
-        maximize,
-        allowStrings,
-    }?: {
-        minimize?: boolean;
-        maximize?: boolean;
-        allowStrings?: boolean;
-    }): Promise<Evaluated<this>> | Evaluated<this>;
+    evaluate({ minimize, maximize, allowStrings }?: EvaluateRollTermParams): Promise<Evaluated<this>> | Evaluated<this>;
 
     /**
      * Evaluate the term.
@@ -83,11 +77,7 @@ export abstract class RollTerm<TTermData extends RollTermData = RollTermData> {
         minimize,
         maximize,
         allowStrings,
-    }?: {
-        minimize?: boolean;
-        maximize?: boolean;
-        allowStrings?: boolean;
-    }): Promise<Evaluated<this>> | Evaluated<this>;
+    }?: EvaluateRollTermParams): Promise<Evaluated<this>> | Evaluated<this>;
 
     /**
      * Determine if evaluating a given RollTerm with certain evaluation options can be done so deterministically.
@@ -158,4 +148,8 @@ declare global {
         class: string;
         formula: string;
     };
+
+    type EvaluateRollTermParams = Omit<EvaluateRollParams, "allowInteractive">;
+
+    type EvaluateSyncRollTermParams = Omit<EvaluateSyncRollParams, "allowString">;
 }

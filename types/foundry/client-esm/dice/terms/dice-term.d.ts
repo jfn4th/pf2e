@@ -29,7 +29,7 @@ export abstract class DiceTerm<TData extends DiceTermData = DiceTermData> extend
     static DENOMINATION: string;
 
     /** Define the named modifiers that can be applied for this particular DiceTerm type. */
-    static MODIFIERS: Record<string, string | ((term: DiceTermResult) => void)>;
+    static MODIFIERS: Record<string, string | ((term: DiceTermResult) => Promise<false | void> | void)>;
 
     /**
      * A regular expression pattern which captures the full set of term modifiers
@@ -102,19 +102,18 @@ export abstract class DiceTerm<TData extends DiceTermData = DiceTermData> extend
      */
     alter(multiply: number, add: number): this;
 
-    protected override _evaluate(): Promise<Evaluated<this>>;
+    protected override _evaluate({
+        minimize,
+        maximize,
+        allowStrings,
+    }: EvaluateRollTermParams): Promise<Evaluated<this>>;
 
     /**
      * Evaluate this dice term asynchronously.
      * @param [options]  Options forwarded to inner Roll evaluation.
      * @returns          A Promise which resolves to the evaluated DiceTerm instance.
      */
-    protected _evaluateAsync({
-        minimize,
-        maximize,
-        allowStrings,
-        allowInteractive,
-    }?: EvaluateRollParams): Promise<Evaluated<this>>;
+    protected _evaluateAsync({ minimize, maximize, allowStrings }?: EvaluateRollTermParams): Promise<Evaluated<this>>;
 
     /**
      * Evaluate deterministic values of this term synchronously.
@@ -125,11 +124,7 @@ export abstract class DiceTerm<TData extends DiceTermData = DiceTermData> extend
      *                              done synchronously.
      * @returns                     The evaluated term
      */
-    protected _evaluateSync({
-        maximize,
-        minimize,
-        strict,
-    }?: Omit<EvaluateSyncRollParams, "allowStrings">): Evaluated<this>;
+    protected _evaluateSync({ maximize, minimize, strict }?: EvaluateSyncRollTermParams): Evaluated<this>;
 
     /**
      * Roll the DiceTerm by mapping a random uniform draw against the faces of the dice term.

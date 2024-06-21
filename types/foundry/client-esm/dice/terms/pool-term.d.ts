@@ -78,9 +78,13 @@ export class PoolTerm<TData extends PoolTermData = PoolTermData> extends RollTer
      */
     alter(...args: unknown[]): this[];
 
-    protected override _evaluateSync({ minimize, maximize }?: Omit<EvaluateRollParams, "async">): Evaluated<this>;
+    protected override _evaluate({
+        minimize,
+        maximize,
+        allowStrings,
+    }?: EvaluateRollTermParams): Promise<Evaluated<this>>;
 
-    protected override _evaluate({ minimize, maximize }?: Omit<EvaluateRollParams, "async">): Promise<Evaluated<this>>;
+    protected _evaluateSync({ minimize, maximize, strict }?: EvaluateSyncRollTermParams): Evaluated<this>;
 
     /**
      * Use the same logic as for the DiceTerm to avoid duplication

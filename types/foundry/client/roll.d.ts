@@ -168,7 +168,7 @@ declare global {
          */
         protected _evaluateASTAsync(
             node: RollParseNode | RollTerm,
-            { minimize, maximize, allowStrings }?: EvaluateRollParams,
+            { minimize, maximize, allowStrings }?: Omit<EvaluateRollParams, "allowInteractive">,
         ): Promise<string | number>;
 
         /**

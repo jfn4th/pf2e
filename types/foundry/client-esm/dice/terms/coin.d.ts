@@ -10,11 +10,13 @@ export class Coin extends DiceTerm<CoinData> {
         c: "call";
     };
 
-    override roll({ minimize, maximize }?: { minimize?: boolean; maximize?: boolean }): DiceTermResult;
+    override roll({ minimize, maximize }?: { minimize?: boolean; maximize?: boolean }): Promise<DiceTermResult>;
 
     override getResultLabel(result: object): string;
 
     override getResultCSS(result: object): string[];
+
+    override mapRandomFace(randomUniform: number): number;
 
     /* -------------------------------------------- */
     /*  Term Modifiers                              */
